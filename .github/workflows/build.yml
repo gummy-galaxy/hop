@@ -39,16 +39,16 @@ jobs:
         run: lute run build
 
       - name: Smoketest
-        run: build/hop --help
+        run: workspace/hop-cli/build/hop --help
 
       - name: Package binary
         if: inputs.upload-artifacts && runner.os != 'Windows'
-        run: zip -j hop-${{ matrix.asset }}.zip build/hop
+        run: zip -j hop-${{ matrix.asset }}.zip workspace/hop-cli/build/hop
 
       - name: Package Windows binary
         if: inputs.upload-artifacts && runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path build/hop.exe -DestinationPath hop-${{ matrix.asset }}.zip
+        run: Compress-Archive -Path workspace/hop-cli/build/hop.exe -DestinationPath hop-${{ matrix.asset }}.zip
 
       - name: Upload artifact
         if: inputs.upload-artifacts

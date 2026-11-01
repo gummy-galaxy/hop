@@ -29,5 +29,5 @@ run("lute", {
 	outputPath,
 	"--bundle-stats",
 	"--show-require-graph",
-})
+}, { cwd = project.CLI_PATH })
 assert(fs.exists(outputPath) and fs.type(outputPath) == "file", `native build did not produce {outputPath}`)

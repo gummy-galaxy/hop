@@ -237,9 +237,9 @@ interface ExpressionCase {
 	reference?: { repository?: string; repositoryName?: string; number: number };
 }
 
-// The CLI's resolver runs the same cases, so Hop: Go and `hop <expr>` agree.
+// Hop's resolver in hop-core runs the same cases, so Hop: Go and `hop <expr>` agree.
 test("parsePullRequestReference agrees with the shared expression cases", () => {
-	const file = path.join(__dirname, "..", "..", "..", "src", "core", "expressions.json");
+	const file = path.join(__dirname, "..", "..", "..", "hop-core", "src", "core", "expressions.json");
 	const cases = JSON.parse(readFileSync(file, "utf8")) as ExpressionCase[];
 	for (const { input, reference } of cases) {
 		assert.deepEqual(parsePullRequestReference(input), reference, input);

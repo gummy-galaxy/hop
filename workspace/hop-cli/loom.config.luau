@@ -8,12 +8,13 @@ return {
 				sourceKind = "github",
 				source = "https://github.com/luau-lang/lute",
 			},
+		},
+		dev_dependencies = {
 			["FlipbookBatteries"] = {
 				rev = "v0.12.0",
 				sourceKind = "github",
 				source = "https://github.com/flipbook-labs/flipbook-batteries",
 			},
 		},
-		dev_dependencies = {},
 	},
 }

@@ -1,5 +1,8 @@
 [version]
 current = "0.1.0"
+# Changewrite looks up its default patterns by the path as written, so these
+# mirrors in subfolders each need their own pattern.
 mirror = [
-  { file = "loom.config.luau" },
+  { file = "workspace/hop-cli/loom.config.luau", pattern = "version%s*=%s*[\"']([^\"']+)[\"']" },
+  { file = "workspace/hop-core/loom.config.luau", pattern = "version%s*=%s*[\"']([^\"']+)[\"']" },
 ]
