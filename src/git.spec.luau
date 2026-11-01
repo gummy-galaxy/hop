@@ -36,13 +36,17 @@ test.case("discovery skips excluded and over-depth repositories but includes lin
 				return successful("git@github.com:example/widgets.git\n")
 			elseif argv[4] == "symbolic-ref" then
 				return successful("origin/main\n")
+			elseif argv[4] == "for-each-ref" then
+				return successful(
+					"main\trefs/remotes/origin/main\nfeature/hop\trefs/remotes/origin/feature/hop-pushed\n"
+				)
 			end
 			return successful(
 				`worktree {primary}\nHEAD abc\nbranch refs/heads/main\n\nworktree {linked}\nHEAD def\nbranch refs/heads/feature/hop\n`
 			)
 		end,
 	})
-	assert.eq(calls, 3)
+	assert.eq(calls, 4)
 	assert.eq(#worktrees, 2)
 	local first = worktrees[1]
 	local second = worktrees[2]
@@ -54,6 +58,7 @@ test.case("discovery skips excluded and over-depth repositories but includes lin
 	assert.eq(linkedWorktree.head, "def")
 	assert.eq(linkedWorktree.root, tostring(primary))
 	assert.eq(linkedWorktree.defaultBranch, "main")
+	assert.eq(linkedWorktree.upstream, "feature/hop-pushed")
 	assert.eq(primaryWorktree.primary, true)
 	assert.eq(primaryWorktree.defaultBranch, "main")
 end)

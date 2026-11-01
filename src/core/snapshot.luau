@@ -18,16 +18,50 @@ export type Snapshot = {
 	pullRequests: { types.PullRequest },
 }
 
+-- Repositories without an `origin/HEAD` fall back to the conventional default branch names.
+local function namesDefaultBranch(branch: string, defaultBranch: string?): boolean
+	if defaultBranch then
+		return branch == defaultBranch
+	end
+	return branch == "main" or branch == "master"
+end
+
+-- The head branches a PR for this worktree could have: its local branch, then the branch it tracks on
+-- `origin` when that has another name. A branch created from `origin/main` tracks the default branch,
+-- but its PR is on the local branch. Matching that upstream would link the worktree to a release or
+-- sync PR opened from the default branch, so it is left out.
+local function headBranches(worktree: types.Worktree): { string }
+	local result: { string } = {}
+	local branch = worktree.branch
+	if branch == nil then
+		return result
+	end
+	table.insert(result, branch)
+	local upstream = worktree.upstream
+	if upstream and upstream ~= branch and not namesDefaultBranch(upstream, worktree.defaultBranch) then
+		table.insert(result, upstream)
+	end
+	return result
+end
+
 local function build(worktrees: { types.Worktree }, pullRequests: { types.PullRequest }, generatedAt: number): Snapshot
 	local index = github.indexPullRequests(pullRequests)
 	local used: { [string]: boolean } = {}
 	local entries: { Entry } = {}
 	for _, worktree in worktrees do
 		local pullRequest: types.PullRequest? = nil
-		if worktree.repository and worktree.branch then
-			local key = github.pullRequestKey(worktree.repository, worktree.branch)
-			pullRequest = index[key]
-			used[key] = true
+		if worktree.repository then
+			for _, branch in headBranches(worktree) do
+				local key = github.pullRequestKey(worktree.repository, branch)
+				if index[key] then
+					pullRequest = index[key]
+					used[key] = true
+					break
+				end
+			end
+			if worktree.branch then
+				used[github.pullRequestKey(worktree.repository, worktree.branch)] = true
+			end
 		end
 		table.insert(entries, { worktree = worktree, pullRequest = pullRequest })
 	end
@@ -55,15 +89,9 @@ local function repositoryName(worktree: types.Worktree): string
 	return paths.basename(root)
 end
 
--- Repositories without an `origin/HEAD` fall back to the conventional default branch names.
 local function isDefaultBranch(worktree: types.Worktree): boolean
 	local branch = worktree.branch
-	if branch == nil then
-		return false
-	elseif worktree.defaultBranch then
-		return branch == worktree.defaultBranch
-	end
-	return branch == "main" or branch == "master"
+	return branch ~= nil and namesDefaultBranch(branch, worktree.defaultBranch)
 end
 
 local function pullRequestJson(pullRequest: types.PullRequest): json.Object
@@ -94,6 +122,7 @@ local function entriesToJson(entries: { Entry }, activity: ((types.Worktree) -> 
 			repository = repository,
 			path = tostring(worktree.path),
 			branch = worktree.branch,
+			upstream = worktree.upstream,
 			head = worktree.head,
 			primary = worktree.primary,
 			onDefaultBranch = isDefaultBranch(worktree),
@@ -169,6 +198,7 @@ local function entriesFromJson(value: json.Value): { Entry }?
 			worktree = {
 				path = path.parse(worktreePath),
 				branch = optionalString(worktreeObject.branch),
+				upstream = optionalString(worktreeObject.upstream),
 				repository = optionalString(repository.remote),
 				root = optionalString(repository.root),
 				head = optionalString(worktreeObject.head),
@@ -209,6 +239,7 @@ return table.freeze({
 	entriesFromJson = entriesFromJson,
 	entriesToJson = entriesToJson,
 	fromJson = fromJson,
+	headBranches = headBranches,
 	isDefaultBranch = isDefaultBranch,
 	repositoryName = repositoryName,
 	toJson = toJson,

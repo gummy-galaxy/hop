@@ -57,6 +57,31 @@ test.case("GitHub looks up pull requests by each worktree branch", function(asse
 	assert.eq(pullRequests[1].repository, "example/widgets")
 end)
 
+test.case("GitHub also looks up the branch a worktree tracks under another name", function(assert)
+	local tracking = worktree("example/widgets", "agent/hop-1a2b3c")
+	tracking.upstream = "feature/hop"
+	local branchQuery: { string } = {}
+	local pullRequests = github.listPullRequests({ tracking }, function(argv)
+		if isAuthoredQuery(argv) then
+			return result(true, '{"data":{"viewer":{"pullRequests":{"nodes":[]}}}}', "")
+		end
+		branchQuery = argv
+		return result(
+			true,
+			`\{"data":\{"branch1":\{"defaultBranchRef":\{"name":"main"},"pullRequests":\{"nodes":[]}},`
+				.. `"branch2":\{"defaultBranchRef":\{"name":"main"},"pullRequests":\{"nodes":[{pullRequestJson(
+					42,
+					"feature/hop"
+				)}]}}}}`,
+			""
+		)
+	end)
+	assert.eq(hasArgument(branchQuery, "branch1=agent/hop-1a2b3c"), true)
+	assert.eq(hasArgument(branchQuery, "branch2=feature/hop"), true)
+	assert.eq(#pullRequests, 1)
+	assert.eq(pullRequests[1].number, 42)
+end)
+
 test.case("GitHub skips default branches and fork pull requests", function(assert)
 	local pullRequests = github.listPullRequests({
 		worktree("example/widgets", "main"),

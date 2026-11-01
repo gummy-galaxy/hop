@@ -48,11 +48,29 @@ local function commandOutput(runner: types.CommandRunner, argv: { string }): str
 	return trim(result.stdout)
 end
 
+-- Maps each local branch to the branch on `origin` it tracks. Branches tracking another remote, or
+-- nothing, are left out, since PRs are looked up in the `origin` repository.
+local function upstreamBranches(runner: types.CommandRunner, primaryPath: string): { [string]: string }
+	local result: { [string]: string } = {}
+	local output = commandOutput(
+		runner,
+		{ "git", "-C", primaryPath, "for-each-ref", "--format=%(refname:short)%09%(upstream)", "refs/heads" }
+	)
+	for line in ((output or "") .. "\n"):gmatch("(.-)\r?\n") do
+		local branch, upstream = line:match("^(.-)\trefs/remotes/origin/(.+)$")
+		if branch and upstream then
+			result[branch] = upstream
+		end
+	end
+	return result
+end
+
 local function parseWorktreeList(
 	contents: string,
 	repository: string?,
 	primaryPath: string,
-	defaultBranch: string?
+	defaultBranch: string?,
+	upstreams: { [string]: string }?
 ): { types.Worktree }
 	local result: { types.Worktree } = {}
 	local current: types.Worktree? = nil
@@ -77,6 +95,7 @@ local function parseWorktreeList(
 			local head = line:match("^HEAD (%x+)$")
 			if branch then
 				current.branch = branch
+				current.upstream = if upstreams then upstreams[branch] else nil
 			elseif head then
 				current.head = head
 			end
@@ -151,7 +170,8 @@ local function discover(roots: { path.Path }, options: Options?): { types.Worktr
 		local defaultBranch = if originHead then originHead:match("^[^/]+/(.+)$") else nil
 		local porcelain = commandOutput(runner, { "git", "-C", primaryString, "worktree", "list", "--porcelain" })
 		if porcelain then
-			for _, worktree in parseWorktreeList(porcelain, repository, primaryString, defaultBranch) do
+			local upstreams = upstreamBranches(runner, primaryString)
+			for _, worktree in parseWorktreeList(porcelain, repository, primaryString, defaultBranch, upstreams) do
 				local key = tostring(worktree.path)
 				if not seen[key] then
 					seen[key] = true
@@ -254,4 +274,5 @@ return table.freeze({
 	lastActivity = lastActivity,
 	parseWorktreeList = parseWorktreeList,
 	repositoryFromRemote = repositoryFromRemote,
+	upstreamBranches = upstreamBranches,
 })
