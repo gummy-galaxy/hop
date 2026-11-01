@@ -25,6 +25,7 @@ rokit add --global vocksel/hop
 hop <expr>
 hop to <expr>
 hop list [--refresh] [--no-pr] [--json]
+hop clean --merged|--all [--dry-run] [--json]
 hop recent [--limit N] [--repo OWNER/REPO] [--agent cursor|claude] [--json]
 hop cursor [NUMBER|QUERY]
 hop help [COMMAND]
@@ -42,6 +43,8 @@ Every command accepts `--help` (or `-h`) to describe its options.
 Other people's worktrees stay out of your list and searches; only a PR reference reaches them. Everything under `~/.hop/cache` is disposable, so deleting it is safe as long as you have pushed any work you did there. Hop fetches these PRs from `refs/pull/<number>/head` into a `pr-<number>` branch, so PRs that share a head branch never compete for one local branch. `repo#123` names a repository when exactly one of your clones or Hop's clones has that name.
 
 `hop list` shows every discovered worktree with its associated pull request, open pull requests that have no local worktree, and other people's pull requests Hop has checked out. Results are cached in `~/.hop/cache/worktrees.json`. `--refresh` rediscovers worktrees and looks up each worktree's pull request by branch, plus your open pull requests in the same repositories, using concurrent batched GitHub queries. `hop to` refreshes the cache once before checking out a PR, when nothing matches, or when a cached match no longer exists, so a worktree or PR newer than the cache is found. `--no-pr` skips GitHub and does not update the cache, and neither does a refresh whose GitHub lookup fails. `--json` prints the same data for tools such as editor integrations.
+
+`hop clean` removes worktrees Hop checked out for pull requests: your PRs' `<folder>-pr-<number>` worktrees and other people's under `~/.hop/cache`. Worktrees you or an agent made are never removed, even when they hold a PR. `--merged` removes only checkouts whose PR has merged, and `--all` removes every one of them. A checkout with uncommitted changes, or the one holding the current directory, is kept and listed with the reason. After a merged checkout is removed, its local branch is deleted too, but only when its tip is the merged PR's head, so a commit that missed the merge is never lost. `--dry-run` lists what would be removed.
 
 `hop recent` merges active top-level Cursor sessions with Claude Code JSONL sessions and sorts them by last activity. Cursor metadata is queried from its SQLite database in read-only mode. If either provider is unavailable, Hop continues with the other provider.
 

@@ -9,6 +9,7 @@ local Claude = require("@root/providers/claude")
 local Cursor = require("@root/providers/cursor")
 local cache = require("@root/cache")
 local checkout = require("@root/checkout")
+local clean = require("@root/clean")
 local defaultRun = require("@root/command")
 local editor = require("@root/editor")
 local git = require("@root/git")
@@ -37,6 +38,7 @@ export type Dependencies = {
 	now: (() -> number)?,
 	activity: resolve.Activity?,
 	system: editor.System?,
+	currentDirectory: string?,
 }
 
 type Resolved = {
@@ -51,12 +53,19 @@ type Resolved = {
 	now: () -> number,
 	activity: resolve.Activity,
 	system: editor.System?,
+	currentDirectory: string,
 }
 
 type RecentOptions = {
 	limit: number,
 	repository: string?,
 	agent: string?,
+	json: boolean,
+}
+
+type CleanOptions = {
+	mode: clean.Mode,
+	dryRun: boolean,
 	json: boolean,
 }
 
@@ -81,6 +90,7 @@ Expressions:
 local COMMAND_HELP: { [string]: string } = {
 	to = "Open the worktree matching <expr> in VS Code",
 	list = "List worktrees with their pull requests",
+	clean = "Remove worktrees Hop checked out for pull requests",
 	recent = "List recent Cursor and Claude Code sessions",
 	cursor = "Resume a Cursor session in its workspace",
 	help = "Show help for Hop or one of its commands",
@@ -113,6 +123,12 @@ local function createParsers(): Parsers
 	list:add("refresh", "flag", { help = "Rebuild the cached list from Git and GitHub" })
 	list:add("no-pr", "flag", { help = "Skip GitHub pull request lookup" })
 	list:add("json", "flag", { help = "Print JSON" })
+
+	local cleanParser = command("clean")
+	cleanParser:add("merged", "flag", { help = "Remove Hop's checkouts whose pull request has merged" })
+	cleanParser:add("all", "flag", { help = "Remove all of Hop's checkouts" })
+	cleanParser:add("dry-run", "flag", { help = "List what would be removed without removing it" })
+	cleanParser:add("json", "flag", { help = "Print JSON" })
 
 	local recent = command("recent")
 	recent:add("limit", "option", { help = "Maximum number of sessions to show (default 20)", default = "20" })
@@ -166,6 +182,16 @@ local function recentOptions(parser: cli.Parser): RecentOptions
 	}
 end
 
+local function cleanOptions(parser: cli.Parser): CleanOptions
+	local merged = parser:has("merged")
+	assert(merged ~= parser:has("all"), "choose one of --merged or --all")
+	return {
+		mode = if merged then "merged" else "all",
+		dryRun = parser:has("dry-run"),
+		json = parser:has("json"),
+	}
+end
+
 local function listOptions(parser: cli.Parser): ListOptions
 	return {
 		refresh = parser:has("refresh"),
@@ -202,6 +228,7 @@ local function dependencies(options: Dependencies?): Resolved
 		end,
 		activity = resolved.activity or git.lastActivity,
 		system = resolved.system,
+		currentDirectory = resolved.currentDirectory or tostring(process.cwd()),
 	}
 end
 
@@ -544,6 +571,92 @@ local function to(deps: Resolved, args: { string })
 	openCheckout(deps, result.entry, result.created, target)
 end
 
+local function outcomeJson(outcome: clean.Outcome): json.Object
+	local checkoutValue = outcome.checkout
+	local pullRequest = outcome.pullRequest
+	return {
+		path = tostring(checkoutValue.worktree.path),
+		repository = checkoutValue.repository,
+		number = checkoutValue.number,
+		branch = checkoutValue.worktree.branch,
+		state = if pullRequest then pullRequest.state else nil,
+		removed = outcome.removed,
+		branchDeleted = outcome.branchDeleted,
+		kept = outcome.kept,
+	}
+end
+
+local function outcomeLine(outcome: clean.Outcome, dryRun: boolean, homeDirectory: string): string
+	local checkoutValue = outcome.checkout
+	local label = `{checkoutValue.repository}#{checkoutValue.number} {render.tildePath(
+		tostring(checkoutValue.worktree.path),
+		homeDirectory
+	)}`
+	if outcome.kept then
+		return `Kept {label}: {outcome.kept}`
+	elseif dryRun then
+		return `Would remove {label}`
+	elseif outcome.branchDeleted then
+		return `Removed {label} and its branch {checkoutValue.worktree.branch}`
+	end
+	return `Removed {label}`
+end
+
+-- Removes Hop's checkouts, then drops them from the cached list and from Hop's record of other people's
+-- PR checkouts (`others.json`), so neither lists a folder that is gone.
+local function cleanCheckouts(deps: Resolved, options: CleanOptions)
+	local otherEntries = deps.others.read()
+	local outcomes = clean.clean(deps.loadWorktrees(), otherEntries, {
+		mode = options.mode,
+		dryRun = options.dryRun,
+		runner = deps.runner,
+		currentDirectory = deps.currentDirectory,
+	})
+
+	local removed: { [string]: boolean } = {}
+	for _, outcome in outcomes do
+		if outcome.removed then
+			removed[tostring(outcome.checkout.worktree.path)] = true
+		end
+	end
+	if next(removed) then
+		local remaining: { snapshot.Entry } = {}
+		for _, entry in otherEntries do
+			if not removed[tostring(entry.worktree.path)] then
+				table.insert(remaining, entry)
+			end
+		end
+		deps.others.write(remaining)
+		local cached = deps.cache.read()
+		if cached then
+			for index = #cached.entries, 1, -1 do
+				if removed[tostring(cached.entries[index].worktree.path)] then
+					table.remove(cached.entries, index)
+				end
+			end
+			pcall(deps.cache.write, cached)
+		end
+	end
+
+	if options.json then
+		local values: { json.Value } = {}
+		for _, outcome in outcomes do
+			table.insert(values, outcomeJson(outcome))
+		end
+		deps.write(json.serialize(values, true))
+	elseif #outcomes == 0 then
+		deps.write(
+			if options.mode == "merged" then "No checkouts with merged pull requests" else "No checkouts to remove"
+		)
+	else
+		local lines: { string } = {}
+		for _, outcome in outcomes do
+			table.insert(lines, outcomeLine(outcome, options.dryRun, deps.homeDirectory))
+		end
+		deps.write(table.concat(lines, "\n"))
+	end
+end
+
 local function execute(args: { string }, options: Dependencies?)
 	local parsers = createParsers()
 	parsers.root:parse(withDefaultCommand(args))
@@ -572,6 +685,8 @@ local function execute(args: { string }, options: Dependencies?)
 		to(deps, parser:variadics())
 	elseif command == "list" then
 		list(deps, listOptions(parser))
+	elseif command == "clean" then
+		cleanCheckouts(deps, cleanOptions(parser))
 	elseif command == "recent" then
 		local selectedOptions = recentOptions(parser)
 		local items = filteredRecent(recentItems(deps.loadSessions(), deps.loadWorktrees()), selectedOptions)

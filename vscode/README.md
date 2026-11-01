@@ -8,6 +8,8 @@ Each switch opens the checkout as the window's only workspace folder. VS Code re
 
 Pull requests without a local worktree appear at the end of the list. Selecting one runs `hop to`, which switches to a worktree it finds after refreshing or checks the PR out into a new one. Every row with a PR has a button to open it in the browser. Pasting a PR URL (or typing `owner/repo#123`, `repo#123`, or `#123`) shows that PR's worktree, or a **Check out** row for a PR Hop has not seen. Other people's PRs that Hop has checked out, marked with their author, appear only for these references, never for search words.
 
+**Hop: Remove Worktrees for Merged Pull Requests** and **Hop: Remove All Pull Request Worktrees** run `hop clean --merged` and `hop clean --all`. Each lists the worktrees it would remove and asks before removing them. In a single-folder window, the window's own worktree is always kept.
+
 ## Install
 
 ```sh

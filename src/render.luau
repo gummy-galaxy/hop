@@ -91,4 +91,5 @@ return table.freeze({
 	numbered = numbered,
 	numberedWith = numberedWith,
 	pullRequestLabel = pullRequestLabel,
+	tildePath = tildePath,
 })

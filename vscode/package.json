@@ -29,6 +29,16 @@
 				"command": "hop.refresh",
 				"title": "Refresh Worktrees",
 				"category": "Hop"
+			},
+			{
+				"command": "hop.cleanMerged",
+				"title": "Remove Worktrees for Merged Pull Requests",
+				"category": "Hop"
+			},
+			{
+				"command": "hop.cleanAll",
+				"title": "Remove All Pull Request Worktrees",
+				"category": "Hop"
 			}
 		],
 		"configuration": {

@@ -46,9 +46,24 @@ export function resolveHopPath(extensionPath: string, configured: string): strin
 	return existsSync(bundled) ? bundled : "hop";
 }
 
-function run(hop: string, args: string[]): Promise<string> {
+// Mirrors one entry of `hop clean --json`.
+export interface HopCleanOutcome {
+	path: string;
+	repository: string;
+	number: number;
+	branch?: string;
+	state?: string;
+	removed: boolean;
+	branchDeleted: boolean;
+	// Why a checkout that matched was kept, such as uncommitted changes.
+	kept?: string;
+}
+
+export type CleanMode = "merged" | "all";
+
+function run(hop: string, args: string[], cwd?: string): Promise<string> {
 	return new Promise((resolve, reject) => {
-		execFile(hop, args, { maxBuffer: 64 * 1024 * 1024 }, (error, stdout) => {
+		execFile(hop, args, { maxBuffer: 64 * 1024 * 1024, cwd }, (error, stdout) => {
 			if (error) {
 				// hop reports its own errors on stdout.
 				const message = stdout.trim() || error.message;
@@ -73,4 +88,16 @@ export async function list(hop: string, refresh: boolean): Promise<HopList> {
 // back to this extension through its URI handler.
 export async function to(hop: string, expression: string): Promise<void> {
 	await run(hop, ["to", expression]);
+}
+
+// Removes the worktrees Hop checked out for PRs, or with `dryRun` only lists them. Hop keeps the
+// worktree holding `cwd`, so passing a single-folder window's folder keeps it from being removed
+// underneath VS Code.
+export async function clean(hop: string, mode: CleanMode, dryRun: boolean, cwd?: string): Promise<HopCleanOutcome[]> {
+	const stdout = await run(hop, ["clean", `--${mode}`, "--json", ...(dryRun ? ["--dry-run"] : [])], cwd);
+	try {
+		return JSON.parse(stdout) as HopCleanOutcome[];
+	} catch {
+		throw new Error("hop returned invalid JSON");
+	}
 }
