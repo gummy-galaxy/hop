@@ -1,7 +1,7 @@
 local platform = require("@std/system/platform")
 
-local defaultRun = require("@root/command")
-local types = require("@root/types")
+local defaultRun = require("@hop/command")
+local types = require("@hop/types")
 
 export type System = "macos" | "windows" | "linux"
 

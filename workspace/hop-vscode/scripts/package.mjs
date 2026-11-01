@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const extension = dirname(dirname(fileURLToPath(import.meta.url)));
-const repository = dirname(extension);
+const repository = dirname(dirname(extension));
 const run = (command, args, cwd) => execFileSync(command, args, { cwd, stdio: "inherit" });
 
 if (process.platform !== "darwin") {
@@ -15,7 +15,7 @@ if (process.platform !== "darwin") {
 
 run("lute", ["run", "build"], repository);
 mkdirSync(join(extension, "bin"), { recursive: true });
-copyFileSync(join(repository, "build", "hop"), join(extension, "bin", "hop"));
+copyFileSync(join(repository, "workspace", "hop-cli", "build", "hop"), join(extension, "bin", "hop"));
 chmodSync(join(extension, "bin", "hop"), 0o755);
 
 run("npx", ["tsc", "-p", "."], extension);

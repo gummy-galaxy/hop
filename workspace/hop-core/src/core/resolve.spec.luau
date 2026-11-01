@@ -89,7 +89,7 @@ end)
 
 -- The VS Code extension's parser runs the same cases, so `hop <expr>` and Hop: Go agree.
 test.case("resolve parses the shared expression cases", function(assert)
-	local cases = json.asArray(json.deserialize(fs.readFileToString("src/core/expressions.json")))
+	local cases = json.asArray(json.deserialize(fs.readFileToString("workspace/hop-core/src/core/expressions.json")))
 		or error("expected an array of cases")
 	for _, value in cases do
 		local case = json.asObject(value) or error("expected a case object")

@@ -1,7 +1,7 @@
 local test = require("@std/test")
 
 local editor = require("@root/editor")
-local types = require("@root/types")
+local types = require("@hop/types")
 
 local function fakeCode(extensions: string, commands: { { string } }): types.CommandRunner
 	return function(argv)

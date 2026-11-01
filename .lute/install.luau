@@ -1,18 +1,19 @@
 local fs = require("@std/fs")
 local path = require("@std/path")
 local process = require("@std/process")
+local project = require("@repo/project")
 
-local packagesDir = path.resolve("packages")
+local packagesDir = path.join(project.CLI_PATH, "packages")
 local storeDir = path.join(process.homedir(), ".loom", "store")
 
 if not fs.exists(packagesDir) then
 	fs.createDirectory(packagesDir, { makeParents = true })
 end
 
-local installed = process.run({ "lute", "pkg", "install" }, { stdio = "inherit" })
+local installed = process.run({ "lute", "pkg", "install" }, { stdio = "inherit", cwd = tostring(project.CLI_PATH) })
 assert(installed.ok, `lute pkg install failed ({installed.exitcode})`)
 
-local lock = require("@repo/loom.lock")
+local lock = require("@repo/workspace/hop-cli/loom.lock")
 
 fs.removeDirectory(packagesDir, { recursive = true })
 fs.createDirectory(packagesDir)

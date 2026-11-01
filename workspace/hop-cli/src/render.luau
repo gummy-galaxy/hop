@@ -1,12 +1,9 @@
-local paths = require("@root/paths")
-local snapshot = require("@root/core/snapshot")
-local types = require("@root/types")
+local hop = require("@hop")
+local paths = require("@hop/paths")
+local snapshot = require("@hop/core/snapshot")
+local types = require("@hop/types")
 
-export type RecentItem = {
-	session: types.Session,
-	worktree: types.Worktree?,
-	pullRequest: types.PullRequest?,
-}
+type RecentItem = hop.RecentItem
 
 local function label(item: RecentItem): string
 	local session = item.session

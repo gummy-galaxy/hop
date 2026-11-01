@@ -2,12 +2,12 @@ local json = require("@std/json")
 local path = require("@std/path")
 local test = require("@std/test")
 
-local cache = require("@root/cache")
+local cache = require("@hop/cache")
 local cli = require("@root/cli")
-local others = require("@root/others")
-local providers = require("@root/providers")
-local snapshot = require("@root/core/snapshot")
-local types = require("@root/types")
+local others = require("@hop/others")
+local providers = require("@hop/providers")
+local snapshot = require("@hop/core/snapshot")
+local types = require("@hop/types")
 
 -- Fixture paths in the form this platform prints them.
 local function native(value: string): string

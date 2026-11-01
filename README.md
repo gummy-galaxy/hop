@@ -13,7 +13,7 @@ lute setup
 lute run build
 ```
 
-The native executable is written to `build/hop`. To install a released version through Rokit:
+The native executable is written to `workspace/hop-cli/build/hop`. To install a released version through Rokit:
 
 ```sh
 rokit add --global vocksel/hop
@@ -32,7 +32,7 @@ hop help [COMMAND]
 
 Every command accepts `--help` (or `-h`) to describe its options.
 
-`hop <expr>` is shorthand for `hop to <expr>`, which opens the matching worktree. With the [VS Code extension](vscode/README.md) installed, the most recently focused VS Code window switches to it in place; otherwise Hop runs `code <folder>`. An expression is a pull request reference (`owner/repo#123`, `repo#123`, `#123`, or a PR URL) or a query. Each word of a query must match a branch, repository, folder name, PR title, or `repo#123` of your own work, so `hop flipbook m` narrows `hop flipbook` and a bare `123` finds `flipbook#123`. The word `default` matches a checkout of the repository's default branch, as reported by `origin/HEAD` or else `main` or `master`, so `hop flipbook default` opens it without naming the branch. Ambiguous results use a numbered terminal picker that lists worktrees whose branch is exactly the query first, then the default-branch checkout of any repository named in the query, then the most recently changed worktrees, judged by when Git last updated each index. A PR reference resolves your work first and other people's second:
+`hop <expr>` is shorthand for `hop to <expr>`, which opens the matching worktree. With the [VS Code extension](workspace/hop-vscode/README.md) installed, the most recently focused VS Code window switches to it in place; otherwise Hop runs `code <folder>`. An expression is a pull request reference (`owner/repo#123`, `repo#123`, `#123`, or a PR URL) or a query. Each word of a query must match a branch, repository, folder name, PR title, or `repo#123` of your own work, so `hop flipbook m` narrows `hop flipbook` and a bare `123` finds `flipbook#123`. The word `default` matches a checkout of the repository's default branch, as reported by `origin/HEAD` or else `main` or `master`, so `hop flipbook default` opens it without naming the branch. Ambiguous results use a numbered terminal picker that lists worktrees whose branch is exactly the query first, then the default-branch checkout of any repository named in the query, then the most recently changed worktrees, judged by when Git last updated each index. A PR reference resolves your work first and other people's second:
 
 1. A worktree of yours for the PR opens directly.
 2. Your open PR without a worktree is checked out beside your clone as `<folder>-pr-<number>`.
@@ -72,4 +72,10 @@ lute test
 lute run build
 ```
 
-Tests are colocated as `*.spec.luau`. Runtime subprocesses are routed through an injected command runner so adapters and CLI behavior can be tested without invoking local tools.
+Hop is split into packages under `workspace/`:
+
+- [`hop-core`](workspace/hop-core/README.md) finds worktrees, pull requests, and sessions. Other Lute tools can depend on it by GitHub rev.
+- [`hop-cli`](workspace/hop-cli/README.md) is the `hop` command, built on `hop-core`.
+- [`hop-vscode`](workspace/hop-vscode/README.md) is the VS Code extension, which runs `hop`.
+
+The scripts in `.lute/` run from the repository root and work across the packages. Tests are colocated as `*.spec.luau`. Runtime subprocesses are routed through an injected command runner so adapters and CLI behavior can be tested without invoking local tools.
