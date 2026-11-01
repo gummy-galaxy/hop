@@ -42,8 +42,10 @@ local sessions: { types.Session } = {
 	},
 }
 
--- A context that never touches the machine. Every command it is asked to run
--- is recorded in `commands` and answered with an empty success.
+-- A context that never runs a command or reads Hop's files. Commands it is
+-- asked to run are recorded in `commands` and answered with an empty success.
+-- Its cache keeps what is written to it, and each write is also kept in
+-- `writes`.
 local function fakeContext(): (hop.Context, { { string } }, { snapshot.Snapshot })
 	local commands: { { string } } = {}
 	local writes: { snapshot.Snapshot } = {}

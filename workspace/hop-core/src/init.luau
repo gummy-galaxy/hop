@@ -3,7 +3,8 @@
 	your recent Cursor and Claude Code sessions, and the worktree an expression
 	names, as `hop list`, `hop recent`, and `hop to` do. It returns what it finds
 	and leaves printing, choosing between matches, and opening an editor to the
-	caller.
+	caller. Only `to` changes anything on disk: it can add a worktree or clone a
+	repository to check out a pull request.
 
 	Every function takes a context from `context()`. Its defaults read your
 	machine: Git, `gh`, the Cursor and Claude Code data folders, and Hop's cache
@@ -65,9 +66,9 @@ export type ListOptions = {
 	pullRequests: boolean?,
 }
 
--- `others` holds the pull requests of other people that Hop checked out under
--- `~/.hop/cache`. `cached` is true when the snapshot came from the cache
--- instead of from Git and GitHub just now.
+-- `others` holds the worktrees Hop checked out under `~/.hop/cache` for other
+-- people's pull requests. `cached` is true when the snapshot came from Hop's
+-- cache rather than being rebuilt just now.
 export type Listing = {
 	snapshot: snapshot.Snapshot,
 	others: { snapshot.Entry },
@@ -89,13 +90,14 @@ export type RecentItem = {
 
 export type Checkout = {
 	target: resolve.CheckoutTarget,
-	-- False when the pull request already had a worktree that Hop reused.
+	-- False when Hop found an existing worktree on the pull request's branch and
+	-- used it instead of adding one.
 	created: boolean,
 }
 
--- The worktrees an expression matched. When Hop checked
--- out a pull request to answer it, `checkout` describes that and `entries`
--- holds only the checkout.
+-- The worktrees an expression matched. When the expression named a pull
+-- request that had no worktree yet, Hop checks it out, `checkout` names that
+-- pull request, and `entries` holds only its worktree.
 export type Destination = {
 	entries: { snapshot.Entry },
 	checkout: Checkout?,
@@ -241,8 +243,9 @@ local function attachPullRequests(items: { RecentItem }, runner: types.CommandRu
 end
 
 -- Your worktrees with their pull requests, your open pull requests that have
--- no worktree, and others' pull requests that Hop checked out. Reads the cache
--- unless `refresh` is set. `pullRequests = false` skips GitHub.
+-- no worktree, and the worktrees Hop checked out for others' pull requests.
+-- Reads the cache unless `refresh` is set or there is none. When Hop rebuilds
+-- it, `pullRequests = false` skips GitHub and leaves the cache alone.
 local function list(deps: Context, options: ListOptions?): Listing
 	local selected: ListOptions = options or {}
 	local value, cached = loadSnapshot(deps, selected.refresh == true, selected.pullRequests ~= false)
@@ -253,9 +256,10 @@ local function list(deps: Context, options: ListOptions?): Listing
 	}
 end
 
--- Your Cursor and Claude Code sessions, most recent first, each with the
--- worktree it ran in and that worktree's pull request. `pullRequests = false`
--- skips GitHub. Without a `limit`, every session is returned.
+-- Your Cursor and Claude Code sessions, most recent first. Each comes with the
+-- worktree it most likely ran in, matched by folder and then by branch, and
+-- that worktree's pull request. `pullRequests = false` skips GitHub. Without a
+-- `limit`, every session is returned.
 local function recent(deps: Context, options: RecentOptions?): { RecentItem }
 	local selected: RecentOptions = options or {}
 	local items = filteredRecent(recentItems(deps.loadSessions(), deps.loadWorktrees()), selected)
@@ -285,9 +289,11 @@ local function hasMissingWorktree(entries: { snapshot.Entry }): boolean
 	return false
 end
 
--- Finds the worktree an expression names, such as `repo#123` or a few search
--- words, and checks out a pull request when none has one yet. Errors when
--- nothing matches.
+-- Finds the worktrees an expression names. The expression is a pull request
+-- reference such as `repo#123` or search words. A reference to a pull request
+-- with no worktree checks it out; search words only ever match existing
+-- worktrees. Errors when nothing matches, or when search words match only pull
+-- requests without a worktree.
 --
 -- Your worktrees and open PRs come first, then others' work Hop already checked out. Anything else
 -- refreshes a cached snapshot once before checking out a PR or giving up.

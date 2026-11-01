@@ -2,8 +2,8 @@ local FlipbookBatteries = require("@flipbook-batteries")
 
 local run = FlipbookBatteries.run
 
--- Lists each package's files rather than the whole folder, so the CLI's
--- installed `packages/` stay out.
+-- Lute files to lint and type-check. `workspace/hop-cli` is listed file by file
+-- because it also holds the packages `lute run install` copies in.
 local sources = {
 	"workspace/hop-core/src",
 	"workspace/hop-core/loom.config.luau",

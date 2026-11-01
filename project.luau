@@ -1,7 +1,7 @@
 local path = require("@std/path")
 
--- Where each package lives. Lute scripts run from the repository root, so these
--- resolve against it.
+-- Paths the scripts in `.lute/` use. Lute runs those scripts from the
+-- repository root, so these resolve against it.
 local CLI_PATH = path.resolve("workspace/hop-cli")
 
 return {
