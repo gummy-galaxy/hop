@@ -218,7 +218,7 @@ local function runConcurrently(jobs: { () -> ({ PullRequest }, boolean) }): ({ P
 	return result, complete
 end
 
--- PRs for the given worktrees' branches, plus the viewer's open PRs in the same repositories.
+-- PRs for the given worktrees' branches and upstreams, plus the viewer's open PRs in the same repositories.
 -- The second result is false when any GitHub query failed, so callers can avoid caching partial data.
 local function listPullRequests(worktrees: { types.Worktree }, runner: types.CommandRunner?): ({ PullRequest }, boolean)
 	local run = runner or defaultRun
@@ -232,9 +232,13 @@ local function listPullRequests(worktrees: { types.Worktree }, runner: types.Com
 			continue
 		end
 		repositories[repository:lower()] = repositories[repository:lower()] or repository
-		if branch and not seen[pullRequestKey(repository, branch)] then
-			seen[pullRequestKey(repository, branch)] = true
-			table.insert(lookups, { repository = repository, branch = branch })
+		-- A worktree's upstream can name its PR's head when the local branch has another name.
+		-- An upstream that is the default branch is still sent, and `fetchBranches` discards its PRs.
+		for _, name in { branch, if branch then worktree.upstream else nil } do
+			if name and not seen[pullRequestKey(repository, name)] then
+				seen[pullRequestKey(repository, name)] = true
+				table.insert(lookups, { repository = repository, branch = name })
+			end
 		end
 	end
 	if next(repositories) == nil then

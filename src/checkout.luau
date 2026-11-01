@@ -56,12 +56,29 @@ local function removePullRequest(value: snapshot.Snapshot, pullRequest: types.Pu
 	end
 end
 
+-- Your worktree holding a PR whose head is `branch`. A worktree on that local branch takes precedence
+-- over one whose local branch has another name but tracks `branch` on `origin`.
+local function worktreeOnBranch(entries: { snapshot.Entry }, repository: string, branch: string): snapshot.Entry?
+	local tracking: snapshot.Entry? = nil
+	for _, entry in entries do
+		local worktree = entry.worktree
+		if sameRepository(worktree.repository, repository) then
+			if worktree.branch == branch then
+				return entry
+			elseif tracking == nil and table.find(snapshot.headBranches(worktree), branch) then
+				tracking = entry
+			end
+		end
+	end
+	return tracking
+end
+
 -- Fork PRs get a local branch named after the PR, since their head branch name belongs to the fork.
 local function localBranch(pullRequest: types.PullRequest, crossRepository: boolean): string
 	return if crossRepository then `pr-{pullRequest.number}` else pullRequest.branch
 end
 
--- Opens a PR without a worktree. A worktree already on the PR's branch is reused; otherwise a new
+-- Opens a PR without a worktree. A worktree already on or tracking the PR's branch is reused; otherwise a new
 -- one is added beside the repository's primary checkout as `<primary>-pr-<number>`. The snapshot is
 -- updated in place so it can be cached.
 local function pullRequest(
@@ -79,12 +96,11 @@ local function pullRequest(
 
 	-- A same-repository PR's head is its branch, so a worktree on that branch already holds this PR's code
 	-- even when the cache links it to another open PR from the same branch. Fork PRs use `pr-<number>`.
-	for _, entry in value.entries do
-		if entry.worktree.branch == branch and sameRepository(entry.worktree.repository, repository) then
-			entry.pullRequest = entry.pullRequest or details
-			removePullRequest(value, details)
-			return { entry = entry, created = false }
-		end
+	local existing = worktreeOnBranch(value.entries, repository, branch)
+	if existing then
+		existing.pullRequest = existing.pullRequest or details
+		removePullRequest(value, details)
+		return { entry = existing, created = false }
 	end
 
 	local root = primary.root or tostring(primary.path)
@@ -125,10 +141,9 @@ local function ownWorktree(
 	options: ReferenceOptions
 ): snapshot.Entry?
 	local repository = primary.repository
-	for _, entry in value.entries do
-		if entry.worktree.branch == branch and sameRepository(entry.worktree.repository, repository or "") then
-			return entry
-		end
+	local known = worktreeOnBranch(value.entries, repository or "", branch)
+	if known then
+		return known
 	end
 	local root = primary.root or tostring(primary.path)
 	local run = options.runner or defaultRun
@@ -136,14 +151,18 @@ local function ownWorktree(
 	if not ok or not response.ok then
 		return nil
 	end
-	for _, worktree in git.parseWorktreeList(response.stdout, repository, root, primary.defaultBranch) do
-		if worktree.branch == branch and not others.contains(options.homeDirectory, worktree.path) then
-			local entry: snapshot.Entry = { worktree = worktree, pullRequest = nil }
-			table.insert(value.entries, entry)
-			return entry
+	local upstreams = git.upstreamBranches(run, root)
+	local listed: { snapshot.Entry } = {}
+	for _, worktree in git.parseWorktreeList(response.stdout, repository, root, primary.defaultBranch, upstreams) do
+		if not others.contains(options.homeDirectory, worktree.path) then
+			table.insert(listed, { worktree = worktree, pullRequest = nil })
 		end
 	end
-	return nil
+	local found = worktreeOnBranch(listed, repository or "", branch)
+	if found then
+		table.insert(value.entries, found)
+	end
+	return found
 end
 
 -- Opens a PR that neither the cache nor others' work knows. A worktree of yours already on its branch

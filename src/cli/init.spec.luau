@@ -381,9 +381,9 @@ test.case("to checks out someone else's PR URL under the cache, linked to your c
 	local destination = native(`{SILO}/worktrees/example/widgets-pr-7`)
 	local gitCommands = commandsFrom(commands, "git")
 	assert.eq(gitCommands[1], `git -C {native("/src/widgets")} worktree list --porcelain`)
-	assert.eq(gitCommands[2], `git -C {native("/src/widgets")} fetch origin refs/pull/7/head`)
-	assert.eq(gitCommands[3], `git -C {native("/src/widgets")} show-ref --verify --quiet refs/heads/pr-7`)
-	assert.eq(gitCommands[4], `git -C {native("/src/widgets")} worktree add -b pr-7 {destination} FETCH_HEAD`)
+	assert.eq(gitCommands[3], `git -C {native("/src/widgets")} fetch origin refs/pull/7/head`)
+	assert.eq(gitCommands[4], `git -C {native("/src/widgets")} show-ref --verify --quiet refs/heads/pr-7`)
+	assert.eq(gitCommands[5], `git -C {native("/src/widgets")} worktree add -b pr-7 {destination} FETCH_HEAD`)
 	assert.eq(table.concat(lastCommand(commands), " "), `code {destination}`)
 	assert.strContains(output[1], `Checked out Example/Widgets#7 in {destination}`)
 
@@ -447,18 +447,18 @@ test.case("to checks out fork PRs from refs/pull into a PR-named branch", functi
 	local commands: { { string } } = {}
 	cli.execute({ "example/widgets#8" }, (toDependencies(commands, {})))
 	local gitCommands = commandsFrom(commands, "git")
-	assert.eq(gitCommands[2], `git -C {native("/src/widgets")} fetch origin refs/pull/8/head`)
+	assert.eq(gitCommands[3], `git -C {native("/src/widgets")} fetch origin refs/pull/8/head`)
 	local destination = native(`{SILO}/worktrees/example/widgets-pr-8`)
-	assert.eq(gitCommands[4], `git -C {native("/src/widgets")} worktree add -b pr-8 {destination} FETCH_HEAD`)
+	assert.eq(gitCommands[5], `git -C {native("/src/widgets")} worktree add -b pr-8 {destination} FETCH_HEAD`)
 end)
 
 test.case("to fast-forwards and reuses an existing local branch for a PR checkout", function(assert)
 	local commands: { { string } } = {}
 	cli.execute({ "widgets#10" }, (toDependencies(commands, {})))
 	local gitCommands = commandsFrom(commands, "git")
-	assert.eq(gitCommands[4], `git -C {native("/src/widgets")} fetch origin refs/pull/10/head:refs/heads/pr-10`)
+	assert.eq(gitCommands[5], `git -C {native("/src/widgets")} fetch origin refs/pull/10/head:refs/heads/pr-10`)
 	local destination = native(`{SILO}/worktrees/example/widgets-pr-10`)
-	assert.eq(gitCommands[5], `git -C {native("/src/widgets")} worktree add {destination} pr-10`)
+	assert.eq(gitCommands[6], `git -C {native("/src/widgets")} worktree add {destination} pr-10`)
 end)
 
 test.case(
@@ -504,6 +504,58 @@ test.case("to opens a worktree already on a PR's branch instead of adding one", 
 	assert.eq(#commandsFrom(commands, "git"), 0)
 	assert.eq(#output, 0)
 	assert.eq(lastCommand(commands)[2], native("/src/widgets-feature"))
+end)
+
+test.case("to opens a worktree whose local branch tracks the PR's branch under another name", function(assert)
+	local commands: { { string } } = {}
+	local output: { string } = {}
+	local dependencies, writes = toDependencies(commands, output)
+	dependencies.loadWorktrees = function()
+		local all = table.clone(worktrees)
+		table.insert(all, {
+			path = path.parse("/src/widgets/.claude/worktrees/elsewhere-1a2b3c"),
+			branch = "agent/elsewhere-1a2b3c",
+			upstream = "elsewhere",
+			repository = "example/widgets",
+			primary = false,
+		})
+		return all
+	end
+	cli.execute({ "https://github.com/example/widgets/pull/43" }, dependencies)
+	assert.eq(#commandsFrom(commands, "git"), 0)
+	assert.eq(#output, 0)
+	assert.eq(lastCommand(commands)[2], native("/src/widgets/.claude/worktrees/elsewhere-1a2b3c"))
+	assert.eq(#writes[#writes].pullRequests, 0)
+end)
+
+test.case("to finds a worktree tracking someone else's PR branch even when the cache missed it", function(assert)
+	local commands: { { string } } = {}
+	local store, stored = memoryOthers()
+	local dependencies = toDependencies(commands, {}, snapshot.build(worktrees, {}, 0), store)
+	local runner = dependencies.runner or error("expected a runner")
+	dependencies.runner = function(argv)
+		if argv[1] == "git" and argv[4] == "worktree" and argv[5] == "list" then
+			table.insert(commands, argv)
+			return {
+				ok = true,
+				exitCode = 0,
+				stdout = "worktree /src/widgets\nbranch refs/heads/main\n\nworktree /src/widgets-review\nbranch refs/heads/review-fix\n",
+				stderr = "",
+			}
+		elseif argv[1] == "git" and argv[4] == "for-each-ref" then
+			table.insert(commands, argv)
+			return {
+				ok = true,
+				exitCode = 0,
+				stdout = "main\trefs/remotes/origin/main\nreview-fix\trefs/remotes/origin/fix/thing\n",
+				stderr = "",
+			}
+		end
+		return runner(argv)
+	end
+	cli.execute({ "example/widgets#7" }, dependencies)
+	assert.eq(lastCommand(commands)[2], native("/src/widgets-review"))
+	assert.eq(#stored, 0)
 end)
 
 test.case("to checks out the viewer's PR that has no worktree and drops it from the orphan list", function(assert)
