@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 
+import { confirmation, nothingToClean, summary } from "./clean";
 import * as hop from "./hop";
 import { recordRecent } from "./items";
 import { pick } from "./picker";
@@ -63,6 +64,34 @@ export function activate(context: vscode.ExtensionContext): void {
 	const report = (error: unknown) =>
 		void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
 
+	// Lists what Hop would remove, asks before removing it, then refreshes so **Hop: Go** stops offering it.
+	async function clean(mode: hop.CleanMode): Promise<void> {
+		const cwd = workspace.activePath();
+		const planned = await vscode.window.withProgress(
+			{ location: vscode.ProgressLocation.Window, title: "Hop: checking worktrees" },
+			() => hop.clean(hopPath(), mode, true, cwd)
+		);
+		const question = confirmation(mode, planned);
+		if (!question) {
+			void vscode.window.showInformationMessage(nothingToClean(mode, planned));
+			return;
+		}
+		const choice = await vscode.window.showWarningMessage(
+			question.message,
+			{ modal: true, detail: question.detail },
+			"Remove"
+		);
+		if (choice !== "Remove") {
+			return;
+		}
+		const outcomes = await vscode.window.withProgress(
+			{ location: vscode.ProgressLocation.Notification, title: "Hop: removing worktrees" },
+			() => hop.clean(hopPath(), mode, false, cwd)
+		);
+		void vscode.window.showInformationMessage(summary(outcomes));
+		await refresh();
+	}
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand("hop.go", async () => {
 			const target = await pick({ cached, refresh, recent, currentPath: workspace.activePath });
@@ -88,6 +117,8 @@ export function activate(context: vscode.ExtensionContext): void {
 				() => refresh().then(() => undefined, report)
 			)
 		),
+		vscode.commands.registerCommand("hop.cleanMerged", () => clean("merged").catch(report)),
+		vscode.commands.registerCommand("hop.cleanAll", () => clean("all").catch(report)),
 		// `hop <expr>` in a terminal hands off here: vscode://vocksel.hop/to?path=<worktree>
 		vscode.window.registerUriHandler({
 			handleUri: async (uri) => {
