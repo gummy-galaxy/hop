@@ -79,7 +79,7 @@ Expressions:
   A repository's default-branch checkout is listed first, then the most recently changed]]
 
 local COMMAND_HELP: { [string]: string } = {
-	to = "Open the worktree matching <expr> in VS Code",
+	go = "Open the worktree matching <expr> in VS Code",
 	list = "List worktrees with their pull requests",
 	recent = "List recent Cursor and Claude Code sessions",
 	cursor = "Resume a Cursor session in its workspace",
@@ -107,7 +107,7 @@ local function createParsers(): Parsers
 		return parser
 	end
 
-	command("to"):add("expr", "variadic", { help = "Expression to match against worktrees and pull requests" })
+	command("go"):add("expr", "variadic", { help = "Expression to match against worktrees and pull requests" })
 
 	local list = command("list")
 	list:add("refresh", "flag", { help = "Rebuild the cached list from Git and GitHub" })
@@ -127,13 +127,13 @@ local function createParsers(): Parsers
 	return { root = root, commands = commands }
 end
 
--- A leading word that is not a command is an expression for `hop to`.
+-- A leading word that is not a command is an expression for `hop go`.
 local function withDefaultCommand(args: { string }): { string }
 	local first = args[1]
 	if first == nil or first:sub(1, 1) == "-" or COMMAND_HELP[first] then
 		return args
 	end
-	return { "to", table.unpack(args) }
+	return { "go", table.unpack(args) }
 end
 
 local function rootHelp(parser: cli.Parser): string
@@ -141,7 +141,7 @@ local function rootHelp(parser: cli.Parser): string
 		SUMMARY,
 		"",
 		parser:usage("hop"),
-		"       hop <expr>  Same as `hop to <expr>`",
+		"       hop <expr>  Same as `hop go <expr>`",
 		"",
 		parser:help(),
 		"",
@@ -467,9 +467,9 @@ end
 
 -- Your worktrees and open PRs come first, then others' work Hop already checked out. Anything else
 -- refreshes a cached snapshot once before checking out a PR or giving up.
-local function to(deps: Resolved, args: { string })
+local function go(deps: Resolved, args: { string })
 	local text = table.concat(args, " ")
-	assert(text:match("%S"), "usage: hop to <expr>")
+	assert(text:match("%S"), "usage: hop go <expr>")
 	local expression = resolve.parse(text)
 	local value, cached = loadSnapshot(deps, false, true)
 	local resolution = resolve.resolve(value, expression, deps.activity)
@@ -568,8 +568,8 @@ local function execute(args: { string }, options: Dependencies?)
 		return
 	end
 
-	if command == "to" then
-		to(deps, parser:variadics())
+	if command == "go" then
+		go(deps, parser:variadics())
 	elseif command == "list" then
 		list(deps, listOptions(parser))
 	elseif command == "recent" then

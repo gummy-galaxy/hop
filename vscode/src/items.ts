@@ -80,7 +80,7 @@ export function parsePullRequestReference(query: string): PullRequestReference |
 	return bare ? { number: Number(bare[1]) } : undefined;
 }
 
-// A bare `#N` intentionally matches every known repository, like `hop to #N`; each row names its repository.
+// A bare `#N` intentionally matches every known repository, like `hop go #N`; each row names its repository.
 function repositoryMatches(reference: PullRequestReference, repository: string): boolean {
 	const normalized = repository.toLowerCase();
 	if (reference.repository) {
@@ -106,7 +106,7 @@ function isForkCheckout(worktree: HopWorktree, reference: PullRequestReference):
 	return worktree.branch === `pr-${reference.number}` && remote !== undefined && repositoryMatches(reference, remote);
 }
 
-// For a PR Hop does not know about. Mirrors `hop to`: a full reference names its repository;
+// For a PR Hop does not know about. Mirrors `hop go`: a full reference names its repository;
 // otherwise the repository name must match exactly one of your clones or others' work.
 function checkoutTarget(list: HopList, reference: PullRequestReference): Target | undefined {
 	if (reference.repository) {

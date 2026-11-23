@@ -266,13 +266,13 @@ test.case("bare expressions open the matching PR worktree", function(assert)
 	end
 end)
 
-test.case("to matches PR titles and multi-word queries", function(assert)
+test.case("go matches PR titles and multi-word queries", function(assert)
 	local commands: { { string } } = {}
-	cli.execute({ "to", "hop", "command" }, (toDependencies(commands, {})))
+	cli.execute({ "go", "hop", "command" }, (toDependencies(commands, {})))
 	assert.eq(lastCommand(commands)[2], native("/src/widgets-feature"))
 end)
 
-test.case("to picks from ambiguous matches with the numbered picker", function(assert)
+test.case("go picks from ambiguous matches with the numbered picker", function(assert)
 	local commands: { { string } } = {}
 	local output: { string } = {}
 	cli.execute({ "widgets" }, (toDependencies(commands, output)))
@@ -281,13 +281,13 @@ test.case("to picks from ambiguous matches with the numbered picker", function(a
 	assert.eq(lastCommand(commands)[2], native("/src/widgets-feature"))
 end)
 
-test.case("to opens a repository's default-branch checkout by keyword", function(assert)
+test.case("go opens a repository's default-branch checkout by keyword", function(assert)
 	local commands: { { string } } = {}
 	cli.execute({ "widgets", "default" }, (toDependencies(commands, {})))
 	assert.eq(lastCommand(commands)[2], native("/src/widgets"))
 end)
 
-test.case("to lists the most recently used matches first", function(assert)
+test.case("go lists the most recently used matches first", function(assert)
 	for _, recent in { "/src/widgets", "/src/widgets-feature" } do
 		local commands: { { string } } = {}
 		local output: { string } = {}
@@ -304,7 +304,7 @@ test.case("to lists the most recently used matches first", function(assert)
 	end
 end)
 
-test.case("to refreshes a stale cache once before giving up", function(assert)
+test.case("go refreshes a stale cache once before giving up", function(assert)
 	local commands: { { string } } = {}
 	local stale = snapshot.build({ worktrees[1] }, {}, 0)
 	local dependencies, writes = toDependencies(commands, {}, stale)
@@ -313,7 +313,7 @@ test.case("to refreshes a stale cache once before giving up", function(assert)
 	assert.eq(lastCommand(commands)[2], native("/src/widgets-feature"))
 end)
 
-test.case("to refreshes a cache whose matching worktree was removed", function(assert)
+test.case("go refreshes a cache whose matching worktree was removed", function(assert)
 	local removed: types.Worktree = {
 		path = path.parse("/nonexistent/hop-removed-worktree"),
 		branch = "gone",
@@ -328,7 +328,7 @@ test.case("to refreshes a cache whose matching worktree was removed", function(a
 	assert.eq(#writes, 1)
 end)
 
-test.case("to still opens a worktree when the cache cannot be written", function(assert)
+test.case("go still opens a worktree when the cache cannot be written", function(assert)
 	local commands: { { string } } = {}
 	local dependencies = toDependencies(commands, {})
 	dependencies.cache = {
@@ -371,7 +371,7 @@ local function commandsFrom(commands: { { string } }, program: string): { string
 	return result
 end
 
-test.case("to checks out someone else's PR URL under the cache, linked to your clone", function(assert)
+test.case("go checks out someone else's PR URL under the cache, linked to your clone", function(assert)
 	local commands: { { string } } = {}
 	local output: { string } = {}
 	local store, stored = memoryOthers()
@@ -399,7 +399,7 @@ test.case("to checks out someone else's PR URL under the cache, linked to your c
 	end
 end)
 
-test.case("to reopens others' work by reference without asking GitHub", function(assert)
+test.case("go reopens others' work by reference without asking GitHub", function(assert)
 	local commands: { { string } } = {}
 	local destination = native(`{SILO}/worktrees/example/widgets-pr-7`)
 	local store = memoryOthers({
@@ -443,7 +443,7 @@ test.case("others' work never matches search words", function(assert)
 	assert.strContains(tostring(message), 'nothing matches "fix/thing"')
 end)
 
-test.case("to checks out fork PRs from refs/pull into a PR-named branch", function(assert)
+test.case("go checks out fork PRs from refs/pull into a PR-named branch", function(assert)
 	local commands: { { string } } = {}
 	cli.execute({ "example/widgets#8" }, (toDependencies(commands, {})))
 	local gitCommands = commandsFrom(commands, "git")
@@ -452,7 +452,7 @@ test.case("to checks out fork PRs from refs/pull into a PR-named branch", functi
 	assert.eq(gitCommands[4], `git -C {native("/src/widgets")} worktree add -b pr-8 {destination} FETCH_HEAD`)
 end)
 
-test.case("to fast-forwards and reuses an existing local branch for a PR checkout", function(assert)
+test.case("go fast-forwards and reuses an existing local branch for a PR checkout", function(assert)
 	local commands: { { string } } = {}
 	cli.execute({ "widgets#10" }, (toDependencies(commands, {})))
 	local gitCommands = commandsFrom(commands, "git")
@@ -462,7 +462,7 @@ test.case("to fast-forwards and reuses an existing local branch for a PR checkou
 end)
 
 test.case(
-	"to treats a worktree of yours on the PR's branch as your own, even when the cache missed it",
+	"go treats a worktree of yours on the PR's branch as your own, even when the cache missed it",
 	function(assert)
 		local commands: { { string } } = {}
 		local store, stored = memoryOthers()
@@ -497,7 +497,7 @@ test.case("bare numbers are search words that match repo#123", function(assert)
 	assert.eq(#commandsFrom(commands, "git"), 0)
 end)
 
-test.case("to opens a worktree already on a PR's branch instead of adding one", function(assert)
+test.case("go opens a worktree already on a PR's branch instead of adding one", function(assert)
 	local commands: { { string } } = {}
 	local output: { string } = {}
 	cli.execute({ "example/widgets#9" }, (toDependencies(commands, output)))
@@ -506,7 +506,7 @@ test.case("to opens a worktree already on a PR's branch instead of adding one", 
 	assert.eq(lastCommand(commands)[2], native("/src/widgets-feature"))
 end)
 
-test.case("to checks out the viewer's PR that has no worktree and drops it from the orphan list", function(assert)
+test.case("go checks out the viewer's PR that has no worktree and drops it from the orphan list", function(assert)
 	local commands: { { string } } = {}
 	local dependencies, writes = toDependencies(commands, {})
 	cli.execute({ "#43" }, dependencies)
@@ -514,7 +514,7 @@ test.case("to checks out the viewer's PR that has no worktree and drops it from 
 	assert.eq(#writes[#writes].pullRequests, 0)
 end)
 
-test.case("to refreshes the cache before filing your new PR as someone else's", function(assert)
+test.case("go refreshes the cache before filing your new PR as someone else's", function(assert)
 	local commands: { { string } } = {}
 	local store, stored = memoryOthers()
 	cli.execute({ "example/widgets#43" }, (toDependencies(commands, {}, snapshot.build(worktrees, {}, 0), store)))
@@ -522,7 +522,7 @@ test.case("to refreshes the cache before filing your new PR as someone else's", 
 	assert.eq(#stored, 0)
 end)
 
-test.case("to refreshes a cached PR that has since gained a worktree instead of adding another", function(assert)
+test.case("go refreshes a cached PR that has since gained a worktree instead of adding another", function(assert)
 	local commands: { { string } } = {}
 	local orphan: types.PullRequest = {
 		number = 43,
@@ -547,7 +547,7 @@ test.case("to refreshes a cached PR that has since gained a worktree instead of 
 	assert.eq(#commandsFrom(commands, "git"), 0)
 end)
 
-test.case("to keeps records another Hop process wrote during a checkout", function(assert)
+test.case("go keeps records another Hop process wrote during a checkout", function(assert)
 	local commands: { { string } } = {}
 	local store, stored = memoryOthers()
 	local read = store.read
@@ -573,7 +573,7 @@ test.case("to keeps records another Hop process wrote during a checkout", functi
 	assert.eq(tostring(stored[2].worktree.path), native(`{SILO}/worktrees/example/widgets-pr-7`))
 end)
 
-test.case("to clones a repository you do not have into the cache", function(assert)
+test.case("go clones a repository you do not have into the cache", function(assert)
 	local commands: { { string } } = {}
 	local store, stored = memoryOthers()
 	cli.execute({ "other/thing#5" }, (toDependencies(commands, {}, nil, store)))
@@ -699,7 +699,7 @@ test.case("help describes every public command", function(assert)
 			output = value
 		end,
 	})
-	for _, command in { "hop <expr>", "to", "list", "recent", "cursor", "help" } do
+	for _, command in { "hop <expr>", "go", "list", "recent", "cursor", "help" } do
 		assert.strContains(output, command)
 	end
 end)

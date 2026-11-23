@@ -71,6 +71,6 @@ export async function list(hop: string, refresh: boolean): Promise<HopList> {
 
 // Opens the worktree for `expression`, checking out a PR first when needed. Hop hands the folder
 // back to this extension through its URI handler.
-export async function to(hop: string, expression: string): Promise<void> {
-	await run(hop, ["to", expression]);
+export async function go(hop: string, expression: string): Promise<void> {
+	await run(hop, ["go", expression]);
 }
