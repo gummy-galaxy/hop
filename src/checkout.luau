@@ -61,6 +61,69 @@ local function localBranch(pullRequest: types.PullRequest, crossRepository: bool
 	return if crossRepository then `pr-{pullRequest.number}` else pullRequest.branch
 end
 
+-- GitHub's spelling of the PR's repository, which a remote or a typed reference need not match.
+local function canonicalRepository(pullRequest: types.PullRequest): string
+	return pullRequest.url:match("^https?://[^/]+/([^/]+/[^/]+)/pull/%d+") or pullRequest.repository
+end
+
+local function link(
+	primary: string,
+	branch: string,
+	details: types.PullRequest,
+	crossRepository: boolean,
+	runner: types.CommandRunner?
+)
+	git.linkPullRequest({
+		primary = primary,
+		branch = branch,
+		repository = canonicalRepository(details),
+		number = details.number,
+		head = if crossRepository then nil else details.branch,
+	}, runner)
+end
+
+-- The clone to configure when `worktree` is a PR-named checkout that is not linked to its PR yet.
+-- Hop checked out `pr-<number>` worktrees without links before, so reopening one links it.
+local function unlinkedClone(worktree: types.Worktree, number: number, runner: types.CommandRunner?): string?
+	if worktree.branch ~= `pr-{number}` then
+		return nil
+	end
+	local primary = worktree.root or tostring(worktree.path)
+	return if git.isPullRequestLinked(primary, `pr-{number}`, runner) then nil else primary
+end
+
+local function linkReused(
+	worktree: types.Worktree,
+	details: types.PullRequest,
+	crossRepository: boolean,
+	runner: types.CommandRunner?
+)
+	local primary = unlinkedClone(worktree, details.number, runner)
+	if primary then
+		link(primary, `pr-{details.number}`, details, crossRepository, runner)
+	end
+end
+
+-- Links a PR-named worktree that `hop to` reopens straight from what Hop recorded. Only an unlinked
+-- worktree costs a GitHub lookup, and a failed lookup still opens it.
+local function relink(entry: snapshot.Entry, runner: types.CommandRunner?)
+	local pullRequest = entry.pullRequest
+	if pullRequest == nil or unlinkedClone(entry.worktree, pullRequest.number, runner) == nil then
+		return
+	end
+	local ok, details, crossRepository =
+		pcall(github.viewPullRequest, pullRequest.repository, pullRequest.number, runner)
+	if ok then
+		link(
+			entry.worktree.root or tostring(entry.worktree.path),
+			`pr-{pullRequest.number}`,
+			details,
+			crossRepository,
+			runner
+		)
+	end
+end
+
 -- Opens a PR without a worktree. A worktree already on the PR's branch is reused; otherwise a new
 -- one is added beside the repository's primary checkout as `<primary>-pr-<number>`. The snapshot is
 -- updated in place so it can be cached.
@@ -83,6 +146,7 @@ local function pullRequest(
 		if entry.worktree.branch == branch and sameRepository(entry.worktree.repository, repository) then
 			entry.pullRequest = entry.pullRequest or details
 			removePullRequest(value, details)
+			linkReused(entry.worktree, details, crossRepository, runner)
 			return { entry = entry, created = false }
 		end
 	end
@@ -99,6 +163,9 @@ local function pullRequest(
 		branch = branch,
 		fromPullRef = crossRepository,
 	}, runner)
+	if crossRepository then
+		link(root, branch, details, crossRepository, runner)
+	end
 
 	local entry: snapshot.Entry = {
 		worktree = {
@@ -166,6 +233,7 @@ local function reference(
 		if own then
 			own.pullRequest = own.pullRequest or details
 			removePullRequest(value, details)
+			linkReused(own.worktree, details, crossRepository, options.runner)
 			return { entry = own, created = false, other = false }
 		end
 	end
@@ -193,6 +261,7 @@ local function reference(
 		branch = otherBranch,
 		fromPullRef = true,
 	}, options.runner)
+	link(root, otherBranch, details, crossRepository, options.runner)
 
 	return {
 		entry = {
@@ -215,4 +284,5 @@ end
 return table.freeze({
 	pullRequest = pullRequest,
 	reference = reference,
+	relink = relink,
 })
