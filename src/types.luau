@@ -28,6 +28,8 @@ export type PullRequest = {
 	state: string?,
 	draft: boolean?,
 	author: string?,
+	-- The commit at the tip of the PR's branch when Hop looked the PR up. Only `gh pr view` reports it.
+	head: string?,
 }
 
 export type Message = {

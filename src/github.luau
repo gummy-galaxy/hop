@@ -15,7 +15,7 @@ local BATCH_SIZE = 25
 local CONCURRENCY = 5
 local AUTHORED_PAGES = 5
 local NODE_FIELDS = "number title url headRefName state isDraft isCrossRepository author { login }"
-local VIEW_FIELDS = "number,title,url,headRefName,state,isDraft,isCrossRepository,author"
+local VIEW_FIELDS = "number,title,url,headRefName,headRefOid,state,isDraft,isCrossRepository,author"
 
 local STATE_RANK: { [string]: number } = {
 	OPEN = 3,
@@ -39,6 +39,7 @@ local function pullRequestFromObject(object: json.Object, repository: string): P
 	local draft = object.isDraft
 	local author = json.asObject(object.author)
 	local login = if author then author.login else nil
+	local head = object.headRefOid
 	return {
 		number = number,
 		url = url,
@@ -48,6 +49,7 @@ local function pullRequestFromObject(object: json.Object, repository: string): P
 		state = if type(state) == "string" then state else nil,
 		draft = if type(draft) == "boolean" then draft else nil,
 		author = if type(login) == "string" then login else nil,
+		head = if type(head) == "string" then head else nil,
 	}
 end
 

@@ -677,6 +677,57 @@ test.case("list --no-pr skips gh and leaves the cache alone", function(assert)
 	assert.eq(#writes, 0)
 end)
 
+test.case("clean needs exactly one of --merged or --all", function(assert)
+	for _, args in { { "clean" }, { "clean", "--merged", "--all" } } do
+		local ok, message = pcall(cli.execute, args, (toDependencies({}, {})))
+		assert.eq(ok, false)
+		assert.strContains(tostring(message), "choose one of --merged or --all")
+	end
+end)
+
+test.case("clean --all removes Hop's checkouts and forgets them", function(assert)
+	local commands: { { string } } = {}
+	local output: { string } = {}
+	local checkoutPath = native("/src/widgets-pr-43")
+	local otherPath = native(`{SILO}/worktrees/example/widgets-pr-9`)
+	local all = table.clone(worktrees)
+	table.insert(all, {
+		path = path.parse(checkoutPath),
+		branch = "elsewhere",
+		repository = "example/widgets",
+		root = native("/src/widgets"),
+		primary = false,
+	})
+	local store, stored = memoryOthers({
+		{
+			worktree = {
+				path = path.parse(otherPath),
+				branch = "pr-9",
+				repository = "example/widgets",
+				root = native("/src/widgets"),
+				primary = false,
+			},
+			pullRequest = nil,
+		},
+	})
+	local dependencies, writes = toDependencies(commands, output, snapshot.build(all, {}, 0), store)
+	dependencies.loadWorktrees = function()
+		return all
+	end
+	dependencies.currentDirectory = native("/src/widgets")
+	cli.execute({ "clean", "--all", "--json" }, dependencies)
+
+	local outcomes = json.asArray(json.deserialize(output[1])) or {}
+	assert.eq(#outcomes, 2)
+	assert.eq(#stored, 0)
+	for _, entry in writes[#writes].entries do
+		assert.neq(tostring(entry.worktree.path), checkoutPath)
+	end
+	local removals = commandsFrom(commands, "git")
+	assert.eq(removals[1], `git -C {native("/src/widgets")} worktree remove {checkoutPath}`)
+	assert.eq(removals[2], `git -C {native("/src/widgets")} worktree remove {otherPath}`)
+end)
+
 test.case("cursor resumes the selected session in its workspace", function(assert)
 	local command: { string } = {}
 	local dependencies = baseDependencies(function() end)
