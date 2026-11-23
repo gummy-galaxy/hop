@@ -61,6 +61,16 @@ export function worktreeKey(target: Target): string {
 	}
 }
 
+// A `pr-<number>` worktree opens through `hop to`, which links the branch to its PR for the GitHub
+// Pull Requests extension when it is not linked yet. Other worktrees need nothing from Hop to open.
+export function linkingExpression(worktree: HopWorktree): string | undefined {
+	const pullRequest = worktree.pr;
+	if (!pullRequest || worktree.branch !== `pr-${pullRequest.number}`) {
+		return undefined;
+	}
+	return `${pullRequest.repository}#${pullRequest.number}`;
+}
+
 const REPOSITORY = String.raw`[\w.-]+/[\w.-]+`;
 const NAME = String.raw`[\w.-]+`;
 
