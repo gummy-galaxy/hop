@@ -308,7 +308,7 @@ test("recordRecent moves a path to the front and caps the list", () => {
 	assert.deepEqual(recordRecent(["a", "b"], "c", 2), ["c", "a"]);
 });
 
-test("linkingExpression routes only PR-named worktrees through hop to", () => {
+test("linkingExpression routes only PR-named worktrees through hop go", () => {
 	const pr = {
 		repository: "example/widgets",
 		number: 7,

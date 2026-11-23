@@ -104,7 +104,7 @@ local function linkReused(
 	end
 end
 
--- Links a PR-named worktree that `hop to` reopens straight from what Hop recorded. Only an unlinked
+-- Links a PR-named worktree that `hop go` reopens straight from what Hop recorded. Only an unlinked
 -- worktree costs a GitHub lookup, and a failed lookup still opens it.
 local function relink(entry: snapshot.Entry, runner: types.CommandRunner?)
 	local pullRequest = entry.pullRequest

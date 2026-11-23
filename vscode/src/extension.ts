@@ -68,13 +68,13 @@ export function activate(context: vscode.ExtensionContext): void {
 			const target = await pick({ cached, refresh, recent, currentPath: workspace.activePath });
 			const linking = target?.kind === "worktree" ? linkingExpression(target.worktree) : undefined;
 			if (target?.kind === "worktree" && linking) {
-				// `hop to` hands the folder back through the URI handler; opening matters more than linking.
+				// `hop go` hands the folder back through the URI handler; opening matters more than linking.
 				const worktree = target.worktree;
-				await hop.to(hopPath(), linking).catch(() => go(worktree).catch(report));
+				await hop.go(hopPath(), linking).catch(() => go(worktree).catch(report));
 			} else if (target?.kind === "worktree") {
 				await go(target.worktree).catch(report);
 			} else if (target) {
-				// `hop to` opens a worktree it finds after refreshing, or checks the PR out.
+				// `hop go` opens a worktree it finds after refreshing, or checks the PR out.
 				const expression =
 					target.kind === "pullRequest"
 						? `${target.pullRequest.repository}#${target.pullRequest.number}`
@@ -82,7 +82,7 @@ export function activate(context: vscode.ExtensionContext): void {
 				await vscode.window
 					.withProgress(
 						{ location: vscode.ProgressLocation.Notification, title: `Hop: checking out ${expression}` },
-						() => hop.to(hopPath(), expression)
+						() => hop.go(hopPath(), expression)
 					)
 					.then(undefined, report);
 			}

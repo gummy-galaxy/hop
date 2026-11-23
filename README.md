@@ -23,7 +23,7 @@ rokit add --global vocksel/hop
 
 ```text
 hop <expr>
-hop to <expr>
+hop go <expr>
 hop list [--refresh] [--no-pr] [--json]
 hop recent [--limit N] [--repo OWNER/REPO] [--agent cursor|claude] [--json]
 hop cursor [NUMBER|QUERY]
@@ -32,7 +32,7 @@ hop help [COMMAND]
 
 Every command accepts `--help` (or `-h`) to describe its options.
 
-`hop <expr>` is shorthand for `hop to <expr>`, which opens the matching worktree. With the [VS Code extension](vscode/README.md) installed, the most recently focused VS Code window switches to it in place; otherwise Hop runs `code <folder>`. An expression is a pull request reference (`owner/repo#123`, `repo#123`, `#123`, or a PR URL) or a query. Each word of a query must match a branch, repository, folder name, PR title, or `repo#123` of your own work, so `hop flipbook m` narrows `hop flipbook` and a bare `123` finds `flipbook#123`. The word `default` matches a checkout of the repository's default branch, as reported by `origin/HEAD` or else `main` or `master`, so `hop flipbook default` opens it without naming the branch. Ambiguous results use a numbered terminal picker that lists worktrees whose branch is exactly the query first, then the default-branch checkout of any repository named in the query, then the most recently changed worktrees, judged by when Git last updated each index. A PR reference resolves your work first and other people's second:
+`hop <expr>` is shorthand for `hop go <expr>`, which opens the matching worktree. With the [VS Code extension](vscode/README.md) installed, the most recently focused VS Code window switches to it in place; otherwise Hop runs `code <folder>`. An expression is a pull request reference (`owner/repo#123`, `repo#123`, `#123`, or a PR URL) or a query. Each word of a query must match a branch, repository, folder name, PR title, or `repo#123` of your own work, so `hop flipbook m` narrows `hop flipbook` and a bare `123` finds `flipbook#123`. The word `default` matches a checkout of the repository's default branch, as reported by `origin/HEAD` or else `main` or `master`, so `hop flipbook default` opens it without naming the branch. Ambiguous results use a numbered terminal picker that lists worktrees whose branch is exactly the query first, then the default-branch checkout of any repository named in the query, then the most recently changed worktrees, judged by when Git last updated each index. A PR reference resolves your work first and other people's second:
 
 1. A worktree of yours for the PR opens directly.
 2. Your open PR without a worktree is checked out beside your clone as `<folder>-pr-<number>`.
@@ -41,7 +41,7 @@ Every command accepts `--help` (or `-h`) to describe its options.
 
 Other people's worktrees stay out of your list and searches; only a PR reference reaches them. Everything under `~/.hop/cache` is disposable, so deleting it is safe as long as you have pushed any work you did there. Hop fetches these PRs from `refs/pull/<number>/head` into a `pr-<number>` branch, so PRs that share a head branch never compete for one local branch. `repo#123` names a repository when exactly one of your clones or Hop's clones has that name.
 
-`hop list` shows every discovered worktree with its associated pull request, open pull requests that have no local worktree, and other people's pull requests Hop has checked out. Results are cached in `~/.hop/cache/worktrees.json`. `--refresh` rediscovers worktrees and looks up each worktree's pull request by branch, plus your open pull requests in the same repositories, using concurrent batched GitHub queries. `hop to` refreshes the cache once before checking out a PR, when nothing matches, or when a cached match no longer exists, so a worktree or PR newer than the cache is found. `--no-pr` skips GitHub and does not update the cache, and neither does a refresh whose GitHub lookup fails. `--json` prints the same data for tools such as editor integrations.
+`hop list` shows every discovered worktree with its associated pull request, open pull requests that have no local worktree, and other people's pull requests Hop has checked out. Results are cached in `~/.hop/cache/worktrees.json`. `--refresh` rediscovers worktrees and looks up each worktree's pull request by branch, plus your open pull requests in the same repositories, using concurrent batched GitHub queries. `hop go` refreshes the cache once before checking out a PR, when nothing matches, or when a cached match no longer exists, so a worktree or PR newer than the cache is found. `--no-pr` skips GitHub and does not update the cache, and neither does a refresh whose GitHub lookup fails. `--json` prints the same data for tools such as editor integrations.
 
 `hop recent` merges active top-level Cursor sessions with Claude Code JSONL sessions and sorts them by last activity. Cursor metadata is queried from its SQLite database in read-only mode. If either provider is unavailable, Hop continues with the other provider.
 
