@@ -3,6 +3,21 @@
 All notable changes to Hop will be documented here.
 
 
+## v0.2.0
+
+### Changes
+
+- Hop now runs on Windows and Linux, with a release binary for each.
+
+- Pull request checkouts on a `pr-<number>` branch now load in the GitHub Pull Requests extension. Hop records each one's pull request in `branch.pr-<number>.github-pr-owner-number` and, when the head branch lives in the same repository, tracks it as the upstream. `hop go` and **Hop: Go** link older `pr-<number>` checkouts the next time they open them.
+
+- Hop now lives at `vocksel/hop`. Install it with `rokit add --global vocksel/hop`. The VS Code extension's ID is now `vocksel.hop`, so reinstall the extension; until then `hop <expr>` opens worktrees with `code <folder>` instead of switching the current window.
+
+- Hop's source names its `@batteries/cli` require `cli`, matching its other requires. Behavior is unchanged.
+
+- `hop to` is now `hop go`, matching the VS Code extension's **Hop: Go** command. `hop <expr>` still works as shorthand. `hop to` is no longer a command, so `hop to <expr>` searches for "to" as part of the expression.
+
+
 ## v0.1.0
 
 ### Features
