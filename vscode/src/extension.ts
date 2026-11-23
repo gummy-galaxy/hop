@@ -69,7 +69,7 @@ export function activate(context: vscode.ExtensionContext): void {
 			if (target?.kind === "worktree") {
 				await go(target.worktree).catch(report);
 			} else if (target) {
-				// `hop to` opens a worktree it finds after refreshing, or checks the PR out.
+				// `hop go` opens a worktree it finds after refreshing, or checks the PR out.
 				const expression =
 					target.kind === "pullRequest"
 						? `${target.pullRequest.repository}#${target.pullRequest.number}`
@@ -77,7 +77,7 @@ export function activate(context: vscode.ExtensionContext): void {
 				await vscode.window
 					.withProgress(
 						{ location: vscode.ProgressLocation.Notification, title: `Hop: checking out ${expression}` },
-						() => hop.to(hopPath(), expression)
+						() => hop.go(hopPath(), expression)
 					)
 					.then(undefined, report);
 			}
