@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { test } from "node:test";
 
 import type { HopList } from "../hop";
-import { buildItems, parsePullRequestReference, recordRecent } from "../items";
+import { buildItems, linkingExpression, parsePullRequestReference, recordRecent } from "../items";
 
 const list: HopList = {
 	generatedAt: 0,
@@ -306,4 +306,24 @@ test("only paths inside the home directory are shortened", () => {
 test("recordRecent moves a path to the front and caps the list", () => {
 	assert.deepEqual(recordRecent(["a", "b", "c"], "b"), ["b", "a", "c"]);
 	assert.deepEqual(recordRecent(["a", "b"], "c", 2), ["c", "a"]);
+});
+
+test("linkingExpression routes only PR-named worktrees through hop go", () => {
+	const pr = {
+		repository: "example/widgets",
+		number: 7,
+		url: "https://github.com/example/widgets/pull/7",
+		branch: "fix/thing",
+	};
+	const worktree = (branch: string, withPullRequest = true) => ({
+		repository: { name: "widgets" },
+		path: "/home/me/.hop/cache/worktrees/example/widgets-pr-7",
+		branch,
+		primary: false,
+		pr: withPullRequest ? pr : undefined,
+	});
+	assert.equal(linkingExpression(worktree("pr-7")), "example/widgets#7");
+	assert.equal(linkingExpression(worktree("fix/thing")), undefined);
+	assert.equal(linkingExpression(worktree("pr-8")), undefined);
+	assert.equal(linkingExpression(worktree("pr-7", false)), undefined);
 });

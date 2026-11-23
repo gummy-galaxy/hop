@@ -217,7 +217,7 @@ end
 -- Adds a linked worktree at `checkout.path` for a PR's head, reusing the local branch when it exists.
 -- Same-repository PRs track `origin/<branch>`. Fork PRs have no remote branch in `origin`, and others'
 -- PRs get a PR-named branch, so their head is fetched from `refs/pull/<number>/head` into a local branch
--- without an upstream.
+-- without an upstream. `linkPullRequest` ties that branch back to its PR.
 local function addPullRequestWorktree(checkout: PullRequestCheckout, runner: types.CommandRunner?)
 	local run = runner or defaultRun
 	local git = { "git", "-C", checkout.primary }
@@ -248,8 +248,61 @@ local function addPullRequestWorktree(checkout: PullRequestCheckout, runner: typ
 	end
 end
 
+export type PullRequestLink = {
+	primary: string,
+	branch: string,
+	-- `owner/repo` as GitHub spells it.
+	repository: string,
+	number: number,
+	-- The PR's head branch in `origin`, or nil for fork PRs, whose head lives in another repository.
+	head: string?,
+}
+
+local PULL_REQUEST_KEY = "github-pr-owner-number"
+
+local function pullRequestKey(branch: string): string
+	return `branch.{branch}.{PULL_REQUEST_KEY}`
+end
+
+-- Whether `branch` already names its PR for the GitHub Pull Requests extension.
+local function isPullRequestLinked(primary: string, branch: string, runner: types.CommandRunner?): boolean
+	local value =
+		commandOutput(runner or defaultRun, { "git", "-C", primary, "config", "--get", pullRequestKey(branch) })
+	return value ~= nil and value ~= ""
+end
+
+-- The GitHub Pull Requests extension finds a branch's PR through the branch's upstream or through
+-- `branch.<name>.github-pr-owner-number`, written as `<owner>#<repo>#<number>`. A PR-named branch has
+-- neither until this sets them. Fork PRs have no branch in `origin` to track, so they only get the key.
+-- Every step is best effort: a head branch deleted after its PR merged only leaves the upstream unset.
+local function linkPullRequest(link: PullRequestLink, runner: types.CommandRunner?)
+	local run = runner or defaultRun
+	local git = { "git", "-C", link.primary }
+	local function command(...: string): { string }
+		local argv = table.clone(git)
+		for _, value in { ... } do
+			table.insert(argv, value)
+		end
+		return argv
+	end
+
+	local head = link.head
+	if head then
+		local fetched = commandOutput(run, command("fetch", "origin", `+refs/heads/{head}:refs/remotes/origin/{head}`))
+		if fetched then
+			commandOutput(run, command("branch", `--set-upstream-to=origin/{head}`, link.branch))
+		end
+	end
+	local owner, name = link.repository:match("^([^/]+)/([^/]+)$")
+	if owner and name then
+		commandOutput(run, command("config", pullRequestKey(link.branch), `{owner}#{name}#{link.number}`))
+	end
+end
+
 return table.freeze({
 	addPullRequestWorktree = addPullRequestWorktree,
+	isPullRequestLinked = isPullRequestLinked,
+	linkPullRequest = linkPullRequest,
 	discover = discover,
 	lastActivity = lastActivity,
 	parseWorktreeList = parseWorktreeList,

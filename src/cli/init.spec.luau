@@ -452,6 +452,106 @@ test.case("go checks out fork PRs from refs/pull into a PR-named branch", functi
 	assert.eq(gitCommands[4], `git -C {native("/src/widgets")} worktree add -b pr-8 {destination} FETCH_HEAD`)
 end)
 
+test.case("go links someone else's PR checkout to its head branch and its PR", function(assert)
+	local commands: { { string } } = {}
+	cli.execute({ "https://github.com/Example/Widgets/pull/7" }, (toDependencies(commands, {})))
+	local gitCommands = commandsFrom(commands, "git")
+	local clone = native("/src/widgets")
+	assert.eq(gitCommands[5], `git -C {clone} fetch origin +refs/heads/fix/thing:refs/remotes/origin/fix/thing`)
+	assert.eq(gitCommands[6], `git -C {clone} branch --set-upstream-to=origin/fix/thing pr-7`)
+	assert.eq(gitCommands[7], `git -C {clone} config branch.pr-7.github-pr-owner-number example#widgets#7`)
+	assert.eq(lastCommand(commands)[1], "code")
+end)
+
+test.case("go links a fork PR checkout by its PR alone, never tracking an origin branch", function(assert)
+	local commands: { { string } } = {}
+	cli.execute({ "example/widgets#8" }, (toDependencies(commands, {})))
+	local gitCommands = commandsFrom(commands, "git")
+	assert.eq(#gitCommands, 5)
+	assert.eq(
+		gitCommands[5],
+		`git -C {native("/src/widgets")} config branch.pr-8.github-pr-owner-number example#widgets#8`
+	)
+end)
+
+test.case("go still links a PR whose head branch is gone", function(assert)
+	local commands: { { string } } = {}
+	local dependencies = toDependencies(commands, {})
+	local runner = dependencies.runner or error("expected a runner")
+	dependencies.runner = function(argv)
+		if
+			argv[1] == "git"
+			and argv[4] == "fetch"
+			and argv[6] == "+refs/heads/fix/thing:refs/remotes/origin/fix/thing"
+		then
+			table.insert(commands, argv)
+			return { ok = false, exitCode = 128, stdout = "", stderr = "couldn't find remote ref" }
+		end
+		return runner(argv)
+	end
+	cli.execute({ "example/widgets#7" }, dependencies)
+	local gitCommands = commandsFrom(commands, "git")
+	assert.eq(
+		gitCommands[#gitCommands],
+		`git -C {native("/src/widgets")} config branch.pr-7.github-pr-owner-number example#widgets#7`
+	)
+	for _, command in gitCommands do
+		assert.eq(command:find("set-upstream-to", 1, true), nil)
+	end
+end)
+
+local function prNamedOther(): snapshot.Entry
+	return {
+		worktree = {
+			path = path.parse(`{SILO}/worktrees/example/widgets-pr-7`),
+			branch = "pr-7",
+			repository = "example/widgets",
+			root = native("/src/widgets"),
+			primary = false,
+		},
+		pullRequest = {
+			number = 7,
+			url = "https://github.com/example/widgets/pull/7",
+			branch = "fix/thing",
+			repository = "example/widgets",
+		},
+	}
+end
+
+test.case("go links a PR-named checkout of others' work when reopening it", function(assert)
+	local commands: { { string } } = {}
+	local store = memoryOthers({ prNamedOther() })
+	cli.execute({ "#7" }, (toDependencies(commands, {}, snapshot.build(worktrees, {}, 0), store)))
+	local clone = native("/src/widgets")
+	local ghCommands = commandsFrom(commands, "gh")
+	assert.eq(#ghCommands, 1)
+	assert.strContains(ghCommands[1], "gh pr view 7 --repo example/widgets")
+	local gitCommands = commandsFrom(commands, "git")
+	assert.eq(gitCommands[1], `git -C {clone} config --get branch.pr-7.github-pr-owner-number`)
+	assert.eq(gitCommands[2], `git -C {clone} fetch origin +refs/heads/fix/thing:refs/remotes/origin/fix/thing`)
+	assert.eq(gitCommands[3], `git -C {clone} branch --set-upstream-to=origin/fix/thing pr-7`)
+	assert.eq(gitCommands[4], `git -C {clone} config branch.pr-7.github-pr-owner-number example#widgets#7`)
+	assert.eq(lastCommand(commands)[2], native(`{SILO}/worktrees/example/widgets-pr-7`))
+end)
+
+test.case("go reopens a linked PR-named checkout without asking GitHub", function(assert)
+	local commands: { { string } } = {}
+	local store = memoryOthers({ prNamedOther() })
+	local dependencies = toDependencies(commands, {}, snapshot.build(worktrees, {}, 0), store)
+	local runner = dependencies.runner or error("expected a runner")
+	dependencies.runner = function(argv)
+		if argv[1] == "git" and argv[4] == "config" and argv[5] == "--get" then
+			table.insert(commands, argv)
+			return { ok = true, exitCode = 0, stdout = "example#widgets#7\n", stderr = "" }
+		end
+		return runner(argv)
+	end
+	cli.execute({ "#7" }, dependencies)
+	assert.eq(#commandsFrom(commands, "gh"), 0)
+	assert.eq(#commandsFrom(commands, "git"), 1)
+	assert.eq(lastCommand(commands)[2], native(`{SILO}/worktrees/example/widgets-pr-7`))
+end)
+
 test.case("go fast-forwards and reuses an existing local branch for a PR checkout", function(assert)
 	local commands: { { string } } = {}
 	cli.execute({ "widgets#10" }, (toDependencies(commands, {})))

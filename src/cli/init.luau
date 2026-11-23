@@ -454,6 +454,7 @@ local function openChoice(deps: Resolved, entries: { snapshot.Entry })
 		return render.entryLabel(entry, deps.homeDirectory)
 	end, deps.input, deps.write)
 	assert(selected, "no worktree selected")
+	checkout.relink(selected, deps.runner)
 	editor.open(tostring(selected.worktree.path), deps.runner, deps.system)
 end
 

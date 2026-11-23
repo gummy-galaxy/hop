@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 import * as hop from "./hop";
-import { recordRecent } from "./items";
+import { linkingExpression, recordRecent } from "./items";
 import { pick } from "./picker";
 import * as workspace from "./workspace";
 
@@ -66,7 +66,12 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.commands.registerCommand("hop.go", async () => {
 			const target = await pick({ cached, refresh, recent, currentPath: workspace.activePath });
-			if (target?.kind === "worktree") {
+			const linking = target?.kind === "worktree" ? linkingExpression(target.worktree) : undefined;
+			if (target?.kind === "worktree" && linking) {
+				// `hop go` hands the folder back through the URI handler; opening matters more than linking.
+				const worktree = target.worktree;
+				await hop.go(hopPath(), linking).catch(() => go(worktree).catch(report));
+			} else if (target?.kind === "worktree") {
 				await go(target.worktree).catch(report);
 			} else if (target) {
 				// `hop go` opens a worktree it finds after refreshing, or checks the PR out.
